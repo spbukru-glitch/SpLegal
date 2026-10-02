@@ -1,0 +1,166 @@
+{
+  "theme_and_art_direction": {
+    "aesthetic": "Modern Legal Chamber",
+    "description": "Deep navy ink, metallic gold accents, editorial serif display type paired with a refined sans. Emphasize a premium, secure, and trusted feel with purposeful motion.",
+    "global_rules": [
+      "No purple gradients.",
+      "No generic Inter/system fonts.",
+      "No centered generic card grids.",
+      "Use lenis smooth momentum scrolling.",
+      "Use framer-motion scroll reveals and micro-interactions.",
+      "Commit to a single distinctive direction: deep navy ink and metallic gold."
+    ]
+  },
+  "typography": {
+    "headings": {
+      "font_family": "Cormorant Garamond",
+      "weights": ["400", "500", "600", "700"],
+      "usage": "H1, H2, H3, Editorial Marquee. Distinctive editorial serif for a premium legal chamber feel.",
+      "import_url": "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap"
+    },
+    "body": {
+      "font_family": "Manrope",
+      "weights": ["300", "400", "500", "600"],
+      "usage": "Paragraphs, UI elements, data tables, form inputs. Refined, crisp sans for excellent legibility.",
+      "import_url": "https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&display=swap"
+    }
+  },
+  "colors": {
+    "primary": {
+      "navy_ink": "#0b1a33",
+      "navy_ink_light": "#152a4f"
+    },
+    "accent": {
+      "metallic_gold": "#d4a13e",
+      "gold_hover": "#b88a33",
+      "gold_muted": "rgba(212, 161, 62, 0.2)"
+    },
+    "background": {
+      "dark": "#0b1a33",
+      "light": "#f9f8f6",
+      "surface_dark": "#101d36",
+      "surface_light": "#ffffff"
+    },
+    "text": {
+      "light": "#f9f8f6",
+      "dark": "#0b1a33",
+      "gold": "#d4a13e",
+      "muted_light": "#94a3b8"
+    }
+  },
+  "visual_enhancers": {
+    "shadows": "Deep ambient shadows on light backgrounds, 1px gold borders with low opacity (border-gold/20) on dark surfaces to define edges without soft shadows.",
+    "textures": "Subtle noise/grain overlay on the deep navy sections to give it an 'ink' or physical paper quality.",
+    "surfaces": "Use solid surfaces with crisp geometric clippings. Avoid heavy glassmorphism unless needed for sticky headers (then use highly saturated crystal glass with 1px border)."
+  },
+  "layouts_and_sections": {
+    "hero": {
+      "description": "Dark hero section with spotlight-treated circular navy/gold 'SP' logo emblem.",
+      "motion": "Kinetic masked line-by-line on-load reveal for typography. Subtle parallax/3D moment on the abstract background or logo.",
+      "content": "Tagline emphasizing rights, responsibility, secure & trusted.",
+      "layout": "Asymmetrical layout. Large serif heading left-aligned, emblem positioned prominently."
+    },
+    "about_expertise": {
+      "description": "Asymmetrical layout with clipped/framed imagery (tall portrait ratio).",
+      "content": "Details on legal expertise and professional presence."
+    },
+    "services_pricing": {
+      "description": "26-row services & pricing table.",
+      "layout": "Dense, highly legible table. Do not use generic centered cards. Use a clean border-collapse style with subtle gold row separators.",
+      "key_info": "Services starting ₹199 PAN India / $5 global. 100% fee refund guarantee. 24-hour delivery."
+    },
+    "booking_form": {
+      "description": "Sleek, integrated booking form that saves to the DB.",
+      "layout": "Clean single column on a surface card with 1px gold border. Focus state outlines in metallic gold.",
+      "functionality": "Connected to backend API. Must show success/error toasts using Sonner."
+    },
+    "csr_careers": {
+      "description": "Editorial section with large serif typography and structured negative space.",
+      "content": "Highlighting Corporate Social Responsibility and Career opportunities."
+    },
+    "why_choose_process": {
+      "description": "Process steps for 'How it works' and 'Why choose us'.",
+      "layout": "Vertical timeline or staggered bento grid (Mode A: 'Tetris' grid). No equal squares."
+    },
+    "contact": {
+      "description": "Grid layout splitting contact info and payment details.",
+      "contact_info": {
+        "phones": "+91-7992461191 / +91-9650323162",
+        "email": "splegalmart@gmail.com",
+        "head_office": "Bawana Delhi-110040",
+        "branches": ["Bukru Kanke Ranchi Jharkhand-834006", "Sheohar Bihar", "Bhatpara 24 Pgs WB", "Patna Bihar"]
+      },
+      "payment_info": {
+        "upi": "7992461191@ybl",
+        "description": "UPI payment shown as static info with copyable UPI ID + real scannable QR code. (Design a premium UI representation of the QR code box)."
+      }
+    },
+    "editorial_marquee": {
+      "description": "Slow editorial marquee for brand values.",
+      "style": "Serif font, pale gold text on navy background, wide spacing, very slow smooth drift. 'react-fast-marquee'."
+    },
+    "footer": {
+      "description": "Massive footer with large brand typographic element.",
+      "content": "© 2026 SpLegalMart \"Your Rights. Our Responsibility. Secure & Trusted.\""
+    },
+    "floating_actions": {
+      "description": "Floating WhatsApp and Call buttons fixed to the bottom right. Premium metallic gold styling."
+    }
+  },
+  "admin_panel": {
+    "route": "/admin",
+    "auth": "JWT login required.",
+    "features": [
+      "Manage services",
+      "Manage pricing",
+      "View/manage bookings in real-time"
+    ],
+    "design": "Clean, dense dashboard style. Mode B High Density Grid. Minimalist, using Shadcn components (tables, dialogs). Navy side-nav with gold active states."
+  },
+  "motion_and_interaction": {
+    "scroll": "Lenis smooth scrolling for momentum.",
+    "reveals": "Framer motion staggered fade-ups (y: 20, opacity: 0 -> 1, duration: 0.8, ease: [0.16, 1, 0.3, 1]). Kinetic line-by-line mask reveals for main headings.",
+    "hovers": "Buttons subtle scale or background fill transition. Table rows highlight slightly on hover.",
+    "accessibility": "Respect prefers-reduced-motion."
+  },
+  "image_urls": {
+    "hero_abstract": {
+      "url": "https://images.unsplash.com/photo-1777380801981-0aa3ad2587e5?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHwzfHxkYXJrJTIwYmx1ZSUyMGFuZCUyMGdvbGQlMjBhYnN0cmFjdHxlbnwwfHx8fDE3OTA5Mjg1NzR8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Abstract textured background with blue and gold stripes (Use for Hero overlay or subtle parallax)."
+    },
+    "about_office": {
+      "url": "https://images.unsplash.com/photo-1784059211920-c1a246b5e025?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDZ8MHwxfHNlYXJjaHw0fHxtb2Rlcm4lMjBsYXclMjBvZmZpY2UlMjBpbnRlcmlvcnxlbnwwfHx8fDE3OTA5Mjg1NzR8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Modern architecture (glass building) for corporate presence in About section."
+    },
+    "legal_scales": {
+      "url": "https://images.unsplash.com/photo-1768839722927-df0ef3188f6d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzF8MHwxfHNlYXJjaHw0fHxsZWdhbCUyMHNjYWxlcyUyMGRhcmt8ZW58MHx8fHwxNzkwOTI4NTc0fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Statue of justice with scales on dark background. Clip this into an asymmetrical frame."
+    },
+    "lawyer_portrait": {
+      "url": "https://images.unsplash.com/photo-1662104935883-e9dd0619eaba?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODF8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBsYXd5ZXIlMjBwb3J0cmFpdHxlbnwwfHx8fDE3OTA5Mjg1NzR8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Professional lawyer portrait for leadership or career section."
+    }
+  },
+  "component_instructions": {
+    "buttons": "Sharp edges or minimal rounding (2px-4px). Background metallic gold, text deep navy. Hover state: slightly lighter gold.",
+    "inputs": "Shadcn UI inputs. Dark mode: bg-transparent, border-gold/20, text-white, focus:border-gold.",
+    "tables": "Use Shadcn Table. No outer card wrapping if possible, just the raw data structure with crisp borders.",
+    "toasts": "Sonner toasts for form submission (success/error)."
+  },
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. Make creative, distinctive frontends that surprise and delight.",
+    "DO NOT use dark colors as gradients. Use solid dark colors.",
+    "Don't make generic centered layouts. Use asymmetrical 'Bento' or 'Tetris' grid styles for content sections.",
+    "Create depth through layered design elements with z-index hierarchy and crisp 1px borders.",
+    "You MUST NOT apply universal transition (e.g., transition: all). Add transitions for specific interactive elements only.",
+    "You MUST NOT center align the app container (.App { text-align: center; } is FORBIDDEN).",
+    "Always use modern button styles (sharp or subtle rounding) with interaction animations & color relevant to the app style.",
+    "NEVER use AI assistant Emoji characters for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "All interactive and key informational elements MUST include a 'data-testid' attribute to facilitate robust automated testing.",
+    "Use 'sonner' for toasts.",
+    "DO NOT use complete `transparent` background in header, overlays, or any surface that has content under it.",
+    "Ensure all components use `.js` and `.jsx` extensions, as the environment does not use TypeScript (`.tsx`)."
+  ]
+}

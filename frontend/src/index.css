@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 25% 98%;
+    --foreground: 218 62% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 218 62% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 218 62% 12%;
+    --primary: 218 62% 12%;
+    --primary-foreground: 42 60% 92%;
+    --secondary: 218 30% 94%;
+    --secondary-foreground: 218 62% 12%;
+    --muted: 218 20% 94%;
+    --muted-foreground: 218 15% 38%;
+    --accent: 41 60% 54%;
+    --accent-foreground: 218 62% 12%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 22% 88%;
+    --input: 220 22% 84%;
+    --ring: 41 60% 54%;
+    --chart-1: 41 60% 54%;
+    --chart-2: 218 62% 20%;
+    --chart-3: 218 62% 12%;
+    --chart-4: 41 70% 70%;
+    --chart-5: 218 30% 60%;
+    --radius: 0.25rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: Manrope, ui-sans-serif, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background: #d4a13e;
+    color: #0b1a33;
+  }
+
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  button:focus-visible,
+  a:focus-visible {
+    outline: 2px solid rgba(212, 161, 62, 0.75);
+    outline-offset: 2px;
+  }
+}
+
+/* ---- lenis momentum scrolling ---- */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* ---- ink grain texture for dark sections ---- */
+.grain {
+  position: relative;
+}
+.grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---- metallic gold display text ---- */
+.gold-text {
+  background: linear-gradient(105deg, #b88a33 0%, #e8c57a 35%, #d4a13e 60%, #f1d69a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---- editorial hairline ---- */
+.hairline-gold {
+  border-color: rgba(212, 161, 62, 0.25);
+}
