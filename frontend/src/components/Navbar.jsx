@@ -6,6 +6,7 @@ const LINKS = [
   { label: "About", hash: "#about" },
   { label: "Services", hash: "#services" },
   { label: "Booking", hash: "#booking" },
+  { label: "CSR", route: "/csr" },
   { label: "Contact", hash: "#contact" },
 ];
 
@@ -59,17 +60,28 @@ export const Navbar = () => {
           </a>
 
           <nav className="hidden items-center gap-8 lg:flex">
-            {LINKS.map((l) => (
-              <a
-                key={l.hash}
-                href={l.hash}
-                onClick={go(l.hash)}
-                data-testid={`nav-link-${l.hash.slice(1)}`}
-                className="text-sm font-medium text-paper/80 transition-colors duration-200 hover:text-gold"
-              >
-                {l.label}
-              </a>
-            ))}
+            {LINKS.map((l) =>
+              l.route ? (
+                <a
+                  key={l.route}
+                  href={l.route}
+                  data-testid={`nav-link-csr`}
+                  className="text-sm font-medium text-paper/80 transition-colors duration-200 hover:text-gold"
+                >
+                  {l.label}
+                </a>
+              ) : (
+                <a
+                  key={l.hash}
+                  href={l.hash}
+                  onClick={go(l.hash)}
+                  data-testid={`nav-link-${l.hash.slice(1)}`}
+                  className="text-sm font-medium text-paper/80 transition-colors duration-200 hover:text-gold"
+                >
+                  {l.label}
+                </a>
+              )
+            )}
             <a
               href="tel:+917992461191"
               data-testid="nav-call-link"
@@ -100,17 +112,29 @@ export const Navbar = () => {
 
       {open && (
         <div className="border-t border-gold/20 bg-ink/95 px-6 pb-6 pt-2 backdrop-blur-md lg:hidden">
-          {LINKS.map((l) => (
-            <a
-              key={l.hash}
-              href={l.hash}
-              onClick={go(l.hash)}
-              data-testid={`nav-mobile-link-${l.hash.slice(1)}`}
-              className="flex items-center gap-3 border-b border-white/5 py-4 text-paper/90"
-            >
-              <Gavel className="h-4 w-4 text-gold" /> {l.label}
-            </a>
-          ))}
+          {LINKS.map((l) =>
+            l.route ? (
+              <a
+                key={l.route}
+                href={l.route}
+                onClick={() => setOpen(false)}
+                data-testid="nav-mobile-link-csr"
+                className="flex items-center gap-3 border-b border-white/5 py-4 text-paper/90"
+              >
+                <Gavel className="h-4 w-4 text-gold" /> {l.label}
+              </a>
+            ) : (
+              <a
+                key={l.hash}
+                href={l.hash}
+                onClick={go(l.hash)}
+                data-testid={`nav-mobile-link-${l.hash.slice(1)}`}
+                className="flex items-center gap-3 border-b border-white/5 py-4 text-paper/90"
+              >
+                <Gavel className="h-4 w-4 text-gold" /> {l.label}
+              </a>
+            )
+          )}
           <a
             href="#booking"
             onClick={go("#booking")}

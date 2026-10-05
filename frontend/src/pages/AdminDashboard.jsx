@@ -1,12 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import dayjs from "dayjs";
 import { toast } from "sonner";
-import { LogOut, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Download, ImagePlus, LogOut, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { api, formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -23,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const STATUSES = ["new", "contacted", "scheduled", "completed", "cancelled"];
 const STATUS_STYLE = {
   new: "bg-gold/15 text-gold border-gold/40",
@@ -31,23 +31,41 @@ const STATUS_STYLE = {
   completed: "bg-emerald-500/15 text-emerald-300 border-emerald-400/40",
   cancelled: "bg-red-500/15 text-red-300 border-red-400/40",
 };
+const CSR_TYPES = [
+  { value: "photo", label: "Photo (upload image)" },
+  { value: "video", label: "Video (link)" },
+  { value: "blog", label: "Blog (link)" },
+  { value: "article", label: "Article (link)" },
+  { value: "social", label: "Social media (link)" },
+];
 
 const emptyService = { name: "", fee: "", category: "" };
+const emptyCsr = { title: "", caption: "", media_type: "photo", url: "" };
 
 export default function AdminDashboard() {
   const { logout } = useAuth();
   const [tab, setTab] = useState("bookings");
   const [bookings, setBookings] = useState([]);
   const [services, setServices] = useState([]);
+  const [csrMedia, setCsrMedia] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [svcForm, setSvcForm] = useState(emptyService);
+  const [csrForm, setCsrForm] = useState(emptyCsr);
+  const [csrFile, setCsrFile] = useState(null);
+  const [csrBusy, setCsrBusy] = useState(false);
+  const csrFileRef = useRef(null);
 
   const load = useCallback(async () => {
     try {
-      const [b, s] = await Promise.all([api.get("/admin/bookings"), api.get("/services")]);
+      const [b, s, c] = await Promise.all([
+        api.get("/admin/bookings"),
+        api.get("/services"),
+        api.get("/admin/csr/media"),
+      ]);
       setBookings(b.data);
       setServices(s.data);
+      setCsrMedia(c.data);
     } catch (err) {
       toast.error(formatApiError(err.response?.data?.detail));
     }
@@ -80,6 +98,20 @@ export default function AdminDashboard() {
     }
   };
 
+  const downloadAttachment = async (b) => {
+    try {
+      const res = await api.get(`/admin/bookings/${b._id}/attachment`, { responseType: "blob" });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = b.attachment.original_filename || "document";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error(formatApiError(err.response?.data?.detail) || "Could not download attachment");
+    }
+  };
+
   const openServiceDialog = (svc) => {
     setEditing(svc || null);
     setSvcForm(svc ? { name: svc.name, fee: svc.fee, category: svc.category } : emptyService);
@@ -95,11 +127,11 @@ export default function AdminDashboard() {
       if (editing) {
         const { data } = await api.patch(`/admin/services/${editing._id}`, svcForm);
         setServices((sv) => sv.map((s) => (s._id === editing._id ? data : s)));
-        toast.success("Service updated");
+        toast.success("Service updated — price list is now live");
       } else {
         const { data } = await api.post("/admin/services", svcForm);
         setServices((sv) => [...sv, data]);
-        toast.success("Service added");
+        toast.success("Service added — price list is now live");
       }
       setDialogOpen(false);
     } catch (err) {
@@ -118,7 +150,67 @@ export default function AdminDashboard() {
     }
   };
 
+  const uploadCsr = async () => {
+    if (csrForm.title.trim().length < 2) {
+      toast.error("Title is required");
+      return;
+    }
+    if (csrForm.media_type === "photo" && !csrFile) {
+      toast.error("Choose a photo to upload");
+      return;
+    }
+    if (csrForm.media_type !== "photo" && !csrForm.url.trim()) {
+      toast.error("Paste the link URL");
+      return;
+    }
+    setCsrBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("title", csrForm.title);
+      fd.append("caption", csrForm.caption);
+      fd.append("media_type", csrForm.media_type);
+      fd.append("url", csrForm.url);
+      if (csrFile) fd.append("file", csrFile);
+      const { data } = await api.post("/admin/csr/media", fd);
+      setCsrMedia((m) => [data, ...m]);
+      setCsrForm(emptyCsr);
+      setCsrFile(null);
+      if (csrFileRef.current) csrFileRef.current.value = "";
+      toast.success("Published to the CSR page");
+    } catch (err) {
+      toast.error(formatApiError(err.response?.data?.detail));
+    } finally {
+      setCsrBusy(false);
+    }
+  };
+
+  const deleteCsr = async (id) => {
+    if (!window.confirm("Remove this from the CSR page?")) return;
+    try {
+      await api.delete(`/admin/csr/media/${id}`);
+      setCsrMedia((m) => m.filter((x) => x._id !== id));
+      toast.success("Removed from CSR page");
+    } catch (err) {
+      toast.error(formatApiError(err.response?.data?.detail));
+    }
+  };
+
   const newCount = bookings.filter((b) => b.status === "new").length;
+  const visibleCsr = csrMedia.filter((m) => m.published);
+
+  const tabBtn = (id, label, extra) => (
+    <button
+      key={id}
+      onClick={() => setTab(id)}
+      data-testid={`admin-tab-${id}`}
+      className={`-mb-px border-b-2 px-5 py-3 text-sm font-semibold uppercase tracking-wider transition-colors ${
+        tab === id ? "border-gold text-gold" : "border-transparent text-paper/50 hover:text-paper"
+      }`}
+    >
+      {label}
+      {extra}
+    </button>
+  );
 
   return (
     <div className="min-h-screen bg-ink-950 font-sans text-paper" data-testid="admin-dashboard">
@@ -149,27 +241,17 @@ export default function AdminDashboard() {
           </div>
         </div>
         <div className="mx-auto flex max-w-7xl gap-1 px-5 sm:px-8">
-          {[
-            { id: "bookings", label: "Bookings", count: bookings.length },
-            { id: "services", label: "Services", count: services.length },
-          ].map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              data-testid={`admin-tab-${t.id}`}
-              className={`-mb-px border-b-2 px-5 py-3 text-sm font-semibold uppercase tracking-wider transition-colors ${
-                tab === t.id ? "border-gold text-gold" : "border-transparent text-paper/50 hover:text-paper"
-              }`}
-            >
-              {t.label}
-              {t.id === "bookings" && newCount > 0 && (
-                <span className="ml-2 bg-gold px-1.5 py-0.5 text-[10px] font-bold text-ink" data-testid="admin-new-bookings-badge">
-                  {newCount} new
-                </span>
-              )}
-              {t.id === "services" && <span className="ml-2 text-xs opacity-60">{t.count}</span>}
-            </button>
-          ))}
+          {tabBtn(
+            "bookings",
+            "Bookings",
+            newCount > 0 && (
+              <span className="ml-2 bg-gold px-1.5 py-0.5 text-[10px] font-bold text-ink" data-testid="admin-new-bookings-badge">
+                {newCount} new
+              </span>
+            )
+          )}
+          {tabBtn("services", "Services", <span className="ml-2 text-xs opacity-60">{services.length}</span>)}
+          {tabBtn("csr", "CSR Media", <span className="ml-2 text-xs opacity-60">{visibleCsr.length}</span>)}
         </div>
       </header>
 
@@ -185,6 +267,7 @@ export default function AdminDashboard() {
                   <th className="px-4 py-3">Mode</th>
                   <th className="px-4 py-3">Preferred</th>
                   <th className="px-4 py-3">Issue</th>
+                  <th className="px-4 py-3">Document</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
@@ -192,7 +275,7 @@ export default function AdminDashboard() {
               <tbody>
                 {bookings.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-14 text-center text-paper/50" data-testid="admin-bookings-empty">
+                    <td colSpan={9} className="px-4 py-14 text-center text-paper/50" data-testid="admin-bookings-empty">
                       No bookings yet — new consultation requests will appear here instantly.
                     </td>
                   </tr>
@@ -212,6 +295,20 @@ export default function AdminDashboard() {
                     <td className="px-4 py-4 text-xs text-paper/70">{b.preferred_time || "—"}</td>
                     <td className="max-w-[280px] px-4 py-4 text-xs leading-relaxed text-paper/70">
                       <span className="line-clamp-3">{b.issue}</span>
+                    </td>
+                    <td className="px-4 py-4">
+                      {b.attachment ? (
+                        <button
+                          onClick={() => downloadAttachment(b)}
+                          className="flex items-center gap-2 border border-gold/40 px-3 py-1.5 text-xs text-gold transition-colors hover:bg-gold hover:text-ink"
+                          data-testid={`booking-attachment-download-${b._id}`}
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          <span className="max-w-[120px] truncate">{b.attachment.original_filename}</span>
+                        </button>
+                      ) : (
+                        <span className="text-xs text-paper/30">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-4">
                       <Select value={b.status} onValueChange={(v) => setStatus(b._id, v)}>
@@ -250,7 +347,7 @@ export default function AdminDashboard() {
         {tab === "services" && (
           <div data-testid="admin-services-tab">
             <div className="mb-5 flex items-center justify-between">
-              <p className="text-sm text-paper/60">Edits appear on the public price list immediately.</p>
+              <p className="text-sm text-paper/60">Edits appear on the public price list immediately — the website shows live pricing from here.</p>
               <Button onClick={() => openServiceDialog(null)} className="bg-gold text-ink hover:bg-gold-400" data-testid="admin-add-service-button">
                 <Plus className="h-4 w-4" /> Add Service
               </Button>
@@ -289,6 +386,124 @@ export default function AdminDashboard() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {tab === "csr" && (
+          <div data-testid="admin-csr-tab">
+            <div className="grid gap-8 lg:grid-cols-[380px_1fr]">
+              <div className="h-fit border border-gold/25 bg-ink-800/70 p-6">
+                <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-gold">
+                  <ImagePlus className="h-4 w-4" /> Publish to CSR Page
+                </p>
+                <div className="mt-5 grid gap-4">
+                  <label className="grid gap-1.5">
+                    <span className="text-xs text-paper/60">Type</span>
+                    <Select value={csrForm.media_type} onValueChange={(v) => setCsrForm((f) => ({ ...f, media_type: v }))}>
+                      <SelectTrigger className="border-gold/25 bg-ink-800 text-paper" data-testid="csr-media-type-select">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-ink-800 border-gold/30 text-paper">
+                        {CSR_TYPES.map((t) => (
+                          <SelectItem key={t.value} value={t.value}>
+                            {t.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </label>
+                  <label className="grid gap-1.5">
+                    <span className="text-xs text-paper/60">Title</span>
+                    <Input
+                      value={csrForm.title}
+                      onChange={(e) => setCsrForm((f) => ({ ...f, title: e.target.value }))}
+                      placeholder="e.g. Plantation drive at Ranchi"
+                      className="border-gold/25 bg-ink-800 text-paper focus-visible:ring-gold"
+                      data-testid="csr-media-title-input"
+                    />
+                  </label>
+                  <label className="grid gap-1.5">
+                    <span className="text-xs text-paper/60">Caption (optional)</span>
+                    <Input
+                      value={csrForm.caption}
+                      onChange={(e) => setCsrForm((f) => ({ ...f, caption: e.target.value }))}
+                      placeholder="Short description"
+                      className="border-gold/25 bg-ink-800 text-paper focus-visible:ring-gold"
+                      data-testid="csr-media-caption-input"
+                    />
+                  </label>
+                  {csrForm.media_type === "photo" ? (
+                    <label className="grid gap-1.5">
+                      <span className="text-xs text-paper/60">Photo (JPG/PNG/WebP · max 10 MB)</span>
+                      <input
+                        ref={csrFileRef}
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.webp"
+                        onChange={(e) => setCsrFile(e.target.files?.[0] || null)}
+                        className="w-full border border-dashed border-gold/40 bg-ink-900/60 px-3 py-2 text-xs text-paper/70 file:mr-3 file:border-0 file:bg-gold file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-ink"
+                        data-testid="csr-media-file-input"
+                      />
+                    </label>
+                  ) : (
+                    <label className="grid gap-1.5">
+                      <span className="text-xs text-paper/60">Link URL (video / blog / article / social)</span>
+                      <Input
+                        value={csrForm.url}
+                        onChange={(e) => setCsrForm((f) => ({ ...f, url: e.target.value }))}
+                        placeholder="https://…"
+                        className="border-gold/25 bg-ink-800 text-paper focus-visible:ring-gold"
+                        data-testid="csr-media-url-input"
+                      />
+                    </label>
+                  )}
+                  <Button onClick={uploadCsr} disabled={csrBusy} className="bg-gold text-ink hover:bg-gold-400" data-testid="csr-media-publish-button">
+                    {csrBusy ? "Publishing…" : "Publish"}
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-4 text-sm text-paper/60">
+                  Live on the CSR page: <span className="font-semibold text-paper">{visibleCsr.length}</span> item(s).
+                </p>
+                {visibleCsr.length === 0 ? (
+                  <p className="border border-dashed border-gold/25 p-8 text-sm text-paper/45" data-testid="admin-csr-empty">
+                    Nothing published yet — upload your first photo using the form.
+                  </p>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2" data-testid="admin-csr-grid">
+                    {visibleCsr.map((m) => (
+                      <div key={m._id} className="border border-gold/20 bg-ink-800/60 p-3" data-testid="admin-csr-card">
+                        {m.media_type === "photo" && m.storage_path ? (
+                          <img src={`${API}/csr/media/${m._id}/file`} alt={m.title} className="aspect-[4/3] w-full object-cover" />
+                        ) : (
+                          <a href={m.url} target="_blank" rel="noreferrer" className="flex aspect-[4/3] w-full items-center justify-center border border-gold/25 text-xs uppercase tracking-[0.2em] text-gold hover:border-gold">
+                            {m.media_type} link ↗
+                          </a>
+                        )}
+                        <div className="mt-3 flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-paper">{m.title}</p>
+                            {m.caption && <p className="mt-0.5 text-xs text-paper/55">{m.caption}</p>}
+                            <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-paper/35">
+                              {m.media_type} · {dayjs(m.created_at).format("DD MMM")}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => deleteCsr(m._id)}
+                            className="p-2 text-paper/40 transition-colors hover:text-red-400"
+                            aria-label="Remove media"
+                            data-testid={`csr-media-delete-${m._id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

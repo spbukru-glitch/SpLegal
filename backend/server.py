@@ -1,13 +1,15 @@
 import os
 import logging
+import uuid
 import bcrypt
 import jwt
+import requests
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Annotated
 
 from bson import ObjectId
-from fastapi import FastAPI, APIRouter, Request, Response, HTTPException, Depends
+from fastapi import FastAPI, APIRouter, Request, Response, HTTPException, Depends, UploadFile, File, Form, Query
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, ConfigDict, BeforeValidator
 from starlette.middleware.cors import CORSMiddleware
@@ -33,6 +35,95 @@ logger = logging.getLogger("splegalmart")
 
 JWT_ALGORITHM = "HS256"
 BOOKING_STATUSES = {"new", "contacted", "scheduled", "completed", "cancelled"}
+CSR_MEDIA_TYPES = {"photo", "video", "blog", "article", "social"}
+
+# ---------- object storage (Emergent objstore) ----------
+STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
+STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
+EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
+APP_NAME = "splegalmart"
+storage_key = None
+
+
+def init_storage(force: bool = False) -> str:
+    global storage_key
+    if storage_key and not force:
+        return storage_key
+    resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
+    resp.raise_for_status()
+    storage_key = resp.json()["storage_key"]
+    return storage_key
+
+
+def put_object(path: str, data: bytes, content_type: str) -> dict:
+    key = init_storage()
+    resp = requests.put(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key, "Content-Type": content_type},
+        data=data,
+        timeout=120,
+    )
+    if resp.status_code == 404:
+        init_storage(force=True)
+        key = init_storage()
+        resp = requests.put(
+            f"{STORAGE_URL}/objects/{path}",
+            headers={"X-Storage-Key": key, "Content-Type": content_type},
+            data=data,
+            timeout=120,
+        )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def get_object(path: str) -> tuple:
+    key = init_storage()
+    resp = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+    if resp.status_code == 404:
+        init_storage(force=True)
+        key = init_storage()
+        resp = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+    resp.raise_for_status()
+    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
+
+
+MIME_TYPES = {
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "png": "image/png",
+    "gif": "image/gif",
+    "webp": "image/webp",
+    "pdf": "application/pdf",
+    "doc": "application/msword",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+BOOKING_FILE_EXTS = {"pdf", "jpg", "jpeg", "png", "doc", "docx"}
+CSR_PHOTO_EXTS = {"jpg", "jpeg", "png", "webp"}
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
+
+async def save_upload(file: UploadFile, subfolder: str, allowed: set) -> dict:
+    ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else "bin"
+    if ext not in allowed:
+        raise HTTPException(status_code=400, detail=f"File type .{ext} not allowed")
+    data = await file.read()
+    if len(data) == 0:
+        raise HTTPException(status_code=400, detail="Empty file")
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (max 10 MB)")
+    content_type = file.content_type or MIME_TYPES.get(ext, "application/octet-stream")
+    path = f"{APP_NAME}/{subfolder}/{uuid.uuid4().hex}.{ext}"
+    result = put_object(path, data, content_type)
+    meta = {
+        "storage_path": result["path"],
+        "original_filename": file.filename,
+        "content_type": content_type,
+        "size": result["size"],
+    }
+    await db.files.insert_one(
+        {"id": str(uuid.uuid4()), **meta, "is_deleted": False, "created_at": datetime.now(timezone.utc)}
+    )
+    return meta
 
 
 # ---------- MongoDB document base ----------
@@ -61,26 +152,6 @@ class BaseDocument(BaseModel):
 class LoginIn(BaseModel):
     email: str
     password: str
-
-
-class BookingIn(BaseModel):
-    full_name: str = Field(min_length=2, max_length=120)
-    mobile: str = Field(min_length=8, max_length=20)
-    email: Optional[str] = Field(default=None, max_length=160)
-    mode: str = Field(min_length=2, max_length=120)
-    preferred_time: Optional[str] = Field(default=None, max_length=120)
-    issue: str = Field(min_length=5, max_length=3000)
-
-
-class Booking(BaseDocument):
-    full_name: str
-    mobile: str
-    email: Optional[str] = None
-    mode: str
-    preferred_time: Optional[str] = None
-    issue: str
-    status: str = "new"
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class BookingStatusIn(BaseModel):
@@ -128,9 +199,15 @@ def create_refresh_token(user_id: str) -> str:
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
-async def get_current_user(request: Request) -> dict:
+def extract_user_payload(request: Request) -> dict:
     auth_header = request.headers.get("Authorization", "")
-    token = auth_header[7:] if auth_header.startswith("Bearer ") else request.cookies.get("access_token")
+    token = auth_header[7:] if auth_header.startswith("Bearer ") else None
+    if not token:
+        token = request.cookies.get("access_token")
+    if not token:
+        q = request.query_params.get("auth")
+        if q:
+            token = q
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
@@ -141,6 +218,11 @@ async def get_current_user(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="Invalid token")
     if payload.get("type") != "access":
         raise HTTPException(status_code=401, detail="Invalid token type")
+    return payload
+
+
+async def get_current_user(request: Request) -> dict:
+    payload = extract_user_payload(request)
     user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
@@ -161,6 +243,14 @@ def service_out(doc: dict) -> dict:
     return d
 
 
+def csr_out(doc: dict) -> dict:
+    d = dict(doc)
+    d["_id"] = str(d["_id"])
+    created = d.get("created_at")
+    d["created_at"] = created.isoformat() if isinstance(created, datetime) else str(created)
+    return d
+
+
 # ---------- public endpoints ----------
 @api_router.get("/")
 async def root():
@@ -174,14 +264,61 @@ async def list_services():
 
 
 @api_router.post("/bookings")
-async def create_booking(input: BookingIn):
-    booking = Booking(**input.model_dump())
-    await db.bookings.insert_one(booking.to_mongo())
-    logger.info("New booking: %s (%s)", booking.full_name, booking.mobile)
-    return {
-        "id": booking.id,
-        "message": "Consultation request received. Our team will contact you within 24 hours.",
+async def create_booking(
+    full_name: str = Form(...),
+    mobile: str = Form(...),
+    mode: str = Form(...),
+    issue: str = Form(...),
+    email: Optional[str] = Form(None),
+    preferred_time: Optional[str] = Form(None),
+    attachment: Optional[UploadFile] = File(None),
+):
+    if not (2 <= len(full_name.strip()) <= 120):
+        raise HTTPException(status_code=400, detail="Full name must be 2-120 characters")
+    if not (8 <= len(mobile.strip()) <= 20):
+        raise HTTPException(status_code=400, detail="Mobile number looks invalid")
+    if not (5 <= len(issue.strip()) <= 3000):
+        raise HTTPException(status_code=400, detail="Please describe your issue (5+ characters)")
+
+    attachment_meta = None
+    if attachment and attachment.filename:
+        attachment_meta = await save_upload(attachment, "bookings", BOOKING_FILE_EXTS)
+
+    doc = {
+        "full_name": full_name.strip(),
+        "mobile": mobile.strip(),
+        "email": (email or "").strip() or None,
+        "mode": mode,
+        "preferred_time": (preferred_time or "").strip() or None,
+        "issue": issue.strip(),
+        "attachment": attachment_meta,
+        "status": "new",
+        "created_at": datetime.now(timezone.utc),
     }
+    await db.bookings.insert_one(doc)
+    logger.info("New booking: %s (%s) attachment=%s", doc["full_name"], doc["mobile"], bool(attachment_meta))
+    return {
+        "message": "Consultation request received. Our team will contact you within 24 hours."
+    }
+
+
+@api_router.get("/csr/media")
+async def list_csr_media():
+    docs = await db.csr_media.find({"published": True}).sort("created_at", -1).to_list(200)
+    return [csr_out(d) for d in docs]
+
+
+@api_router.get("/csr/media/{media_id}/file")
+async def csr_media_file(media_id: str):
+    try:
+        oid = ObjectId(media_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid media id")
+    doc = await db.csr_media.find_one({"_id": oid, "published": True})
+    if not doc or not doc.get("storage_path"):
+        raise HTTPException(status_code=404, detail="File not found")
+    data, content_type = get_object(doc["storage_path"])
+    return Response(content=data, media_type=doc.get("content_type") or content_type)
 
 
 # ---------- auth ----------
@@ -258,6 +395,26 @@ async def admin_list_bookings(user: dict = Depends(get_current_user)):
     return [booking_out(d) for d in docs]
 
 
+@api_router.get("/admin/bookings/{booking_id}/attachment")
+async def admin_booking_attachment(booking_id: str, user: dict = Depends(get_current_user)):
+    try:
+        oid = ObjectId(booking_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid booking id")
+    doc = await db.bookings.find_one({"_id": oid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    attachment = doc.get("attachment")
+    if not attachment:
+        raise HTTPException(status_code=404, detail="No attachment on this booking")
+    data, content_type = get_object(attachment["storage_path"])
+    return Response(
+        content=data,
+        media_type=attachment.get("content_type") or content_type,
+        headers={"Content-Disposition": f'attachment; filename="{attachment.get("original_filename", "document")}"'},
+    )
+
+
 @api_router.patch("/admin/bookings/{booking_id}")
 async def admin_update_booking(booking_id: str, input: BookingStatusIn, user: dict = Depends(get_current_user)):
     if input.status not in BOOKING_STATUSES:
@@ -323,6 +480,66 @@ async def admin_delete_service(service_id: str, user: dict = Depends(get_current
     return {"message": "Service deleted"}
 
 
+# ---------- admin: CSR media ----------
+@api_router.get("/admin/csr/media")
+async def admin_list_csr_media(user: dict = Depends(get_current_user)):
+    docs = await db.csr_media.find().sort("created_at", -1).to_list(500)
+    return [csr_out(d) for d in docs]
+
+
+@api_router.post("/admin/csr/media")
+async def admin_create_csr_media(
+    title: str = Form(...),
+    caption: Optional[str] = Form(None),
+    media_type: str = Form("photo"),
+    url: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
+    user: dict = Depends(get_current_user),
+):
+    if media_type not in CSR_MEDIA_TYPES:
+        raise HTTPException(status_code=400, detail="Invalid media type")
+    if not (2 <= len(title.strip()) <= 160):
+        raise HTTPException(status_code=400, detail="Title must be 2-160 characters")
+
+    storage_path = None
+    content_type = None
+    if media_type == "photo":
+        if not file or not file.filename:
+            raise HTTPException(status_code=400, detail="Photo media requires an image file")
+        meta = await save_upload(file, "csr", CSR_PHOTO_EXTS)
+        storage_path = meta["storage_path"]
+        content_type = meta["content_type"]
+    else:
+        if not url or not url.strip():
+            raise HTTPException(status_code=400, detail="Link-based media requires a URL")
+
+    doc = {
+        "title": title.strip(),
+        "caption": (caption or "").strip() or None,
+        "media_type": media_type,
+        "url": (url or "").strip() or None,
+        "storage_path": storage_path,
+        "content_type": content_type,
+        "published": True,
+        "created_at": datetime.now(timezone.utc),
+    }
+    result = await db.csr_media.insert_one(doc)
+    doc["_id"] = result.inserted_id
+    return csr_out(doc)
+
+
+@api_router.delete("/admin/csr/media/{media_id}")
+async def admin_delete_csr_media(media_id: str, user: dict = Depends(get_current_user)):
+    try:
+        oid = ObjectId(media_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid media id")
+    result = await db.csr_media.update_one({"_id": oid}, {"$set": {"published": False}})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Media not found")
+    return {"message": "Media removed"}
+
+
 # ---------- seed ----------
 SEED_SERVICES = [
     ("Initial Online Consultation (10 min)", "199", "Consultation"),
@@ -357,6 +574,7 @@ SEED_SERVICES = [
 async def seed():
     await db.users.create_index("email", unique=True)
     await db.login_attempts.create_index("identifier")
+    await db.csr_media.create_index("created_at")
     if not await db.users.find_one({"email": ADMIN_EMAIL}):
         await db.users.insert_one(
             {
@@ -378,6 +596,11 @@ async def seed():
 @app.on_event("startup")
 async def startup():
     await seed()
+    try:
+        init_storage()
+        logger.info("Object storage initialized")
+    except Exception as e:
+        logger.error("Object storage init failed: %s", e)
 
 
 @app.on_event("shutdown")

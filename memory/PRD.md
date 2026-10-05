@@ -21,16 +21,20 @@ Convert the provided SpLegalMart HTML landing page (global legal & para-legal se
 - 2026-10-02: Frontend landing page — all sections above, lenis smooth scrolling, framer-motion reveals + masked hero headline + 3D tilt emblem, slow editorial marquee, live pricing from API with static fallback.
 - 2026-10-02: Admin panel /admin — JWT login page, dashboard with Bookings tab (real-time poll every 15s, status select, delete, new-bookings badge) and Services tab (add/edit/delete with dialog).
 - 2026-10-02: Assets — seal.png from user logo, real UPI QR, SVG favicon, copy-to-clipboard UPI chip.
+- 2026-10-05: Emergent object storage (EMERGENT_LLM_KEY) — booking form now accepts an optional document attachment (PDF/JPG/PNG/DOC/DOCX, ≤10MB) via multipart POST /api/bookings; admin downloads attachments from the bookings table; "Live pricing" indicator on services.
+- 2026-10-05: New /csr page — Green Mission & legal aid CSR showcase (5 user-supplied posters), 8 initiative pillars, live media gallery fed from DB, donate block with UPI QR + Skydo. Admin CSR Media tab publishes photos (upload) and link-type items (video/blog/article/social URLs).
+- 2026-10-05: Skydo international payment details added (A/c No. 8333555230, holder SPlegalmart) on booking payment card, contact section and CSR donate block.
 
 ## Backlog / Prioritized
-- P0: none pending (core flows verified end-to-end).
-- P1: WhatsApp deep-link prefill after booking submit; email notification on new booking (Resend); booking date-picker; file/document upload with object storage.
-- P2: Blogs/Judgments resources section; Privacy Policy & Terms pages; client portal with case status; online payment capture (UPI intent deep links / gateway); multi-language (Hindi).
+- P0: Razorpay online payments — code-ready plan exists; BLOCKED on user's RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET (test keys from dashboard.razorpay.com → Settings → API Keys).
+- P0: info@splegalmart.com mailbox — user must register domain + email hosting (Zoho/Google Workspace); mailto links already point to it sitewide.
+- P1: WhatsApp deep-link prefill after booking submit; email notification on new booking (Resend); video file uploads on CSR page (currently link-based); native blog/article editor.
+- P2: Privacy Policy & Terms pages; client portal with case status; multi-language (Hindi).
 
 ## Next Tasks
-1. Email notifications to admin on new bookings (Resend integration).
-2. WhatsApp redirect with prefilled message after booking form submit.
-3. Resources section (blogs, judgments) managed from admin panel.
+1. Wire Razorpay once user provides test/live keys (create-order → checkout → signature verify → payment record linked to booking).
+2. Email notifications to admin on new bookings (Resend integration).
+3. WhatsApp redirect with prefilled message after booking form submit.
 
 ## Test Credentials
 See /app/memory/test_credentials.md — admin@splegalmart.com / admin123.

@@ -1,4 +1,4 @@
-import { Clock, Mail, MapPin, MessageCircle, Phone, Video } from "lucide-react";
+import { Clock, CreditCard, Mail, MapPin, MessageCircle, Phone, Video } from "lucide-react";
 import { FadeUp, Eyebrow } from "@/components/Reveal";
 import { scrollToId } from "@/lib/api";
 
@@ -50,6 +50,10 @@ export const Contact = () => (
               </a>
               <span className="flex items-center gap-3 text-sm text-paper/80" data-testid="contact-hours">
                 <Clock className="h-4 w-4 text-gold" /> 24/7 — Round the Clock
+              </span>
+              <span className="flex items-center gap-3 text-sm text-paper/80 sm:col-span-2" data-testid="contact-payments">
+                <CreditCard className="h-4 w-4 shrink-0 text-gold" /> Payments — UPI: 7992461191@ybl · Skydo A/c No.
+                8333555230 (SPlegalmart) for international payments
               </span>
             </div>
           </div>

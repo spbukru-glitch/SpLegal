@@ -58,6 +58,13 @@ export const Services = () => {
         <FadeUp className="flex flex-wrap items-end justify-between gap-6">
           <div>
             <Eyebrow>Our Services</Eyebrow>
+            <p className="mt-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-700" data-testid="services-live-badge">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
+              Live pricing · managed from admin panel
+            </p>
             <h2 className="mt-5 font-display text-4xl font-medium leading-[1.05] text-ink sm:text-5xl lg:text-6xl">
               Comprehensive <span className="italic text-gold-600">Legal Solutions</span>
             </h2>

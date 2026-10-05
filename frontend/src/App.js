@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import LandingPage from "@/pages/LandingPage";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminDashboard from "@/pages/AdminDashboard";
+import CSRPage from "@/pages/CSRPage";
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -83,6 +84,7 @@ function App() {
           <ScrollToTop />
           <Routes>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/csr" element={<CSRPage />} />
             <Route path="/admin" element={<AdminRoute />} />
             <Route path="*" element={<LandingPage />} />
           </Routes>

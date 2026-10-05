@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { CalendarCheck, Copy, HandHeart, Video } from "lucide-react";
+import { CalendarCheck, Copy, FileText, Globe, HandHeart, Video, X } from "lucide-react";
 import { api, formatApiError } from "@/lib/api";
 import { FadeUp, Eyebrow } from "@/components/Reveal";
 
 const MODES = ["Video / Audio (Zoom, Google Meet, WhatsApp)", "Office Visit", "Door-to-Door"];
 const UPI = "7992461191@ybl";
+const SKYDO = "8333555230";
 
 const inputCls =
   "w-full border border-gold/25 bg-ink-800/60 px-4 py-3 text-sm text-paper placeholder:text-paper/35 transition-colors duration-200 focus:border-gold focus:outline-none";
@@ -19,19 +20,42 @@ export const Booking = () => {
     preferred_time: "",
     issue: "",
   });
+  const [file, setFile] = useState(null);
   const [sending, setSending] = useState(false);
+  const fileRef = useRef(null);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  const pickFile = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 10 * 1024 * 1024) {
+      toast.error("File too large — maximum 10 MB");
+      e.target.value = "";
+      return;
+    }
+    setFile(f);
+  };
 
   const submit = async (e) => {
     e.preventDefault();
     setSending(true);
     try {
-      const { data } = await api.post("/bookings", form);
+      const fd = new FormData();
+      fd.append("full_name", form.full_name);
+      fd.append("mobile", form.mobile);
+      fd.append("email", form.email);
+      fd.append("mode", form.mode);
+      fd.append("preferred_time", form.preferred_time);
+      fd.append("issue", form.issue);
+      if (file) fd.append("attachment", file);
+      const { data } = await api.post("/bookings", fd);
       toast.success(data.message || "Consultation request received.", {
         description: "We will contact you within 24 hours.",
       });
       setForm({ full_name: "", mobile: "", email: "", mode: MODES[0], preferred_time: "", issue: "" });
+      setFile(null);
+      if (fileRef.current) fileRef.current.value = "";
     } catch (err) {
       toast.error(formatApiError(err.response?.data?.detail));
     } finally {
@@ -39,12 +63,12 @@ export const Booking = () => {
     }
   };
 
-  const copyUpi = async () => {
+  const copy = async (value, label) => {
     try {
-      await navigator.clipboard.writeText(UPI);
-      toast.success("UPI ID copied", { description: UPI });
+      await navigator.clipboard.writeText(value);
+      toast.success(`${label} copied`, { description: value });
     } catch {
-      toast.error("Could not copy — UPI ID: " + UPI);
+      toast.error(`Could not copy — ${label}: ${value}`);
     }
   };
 
@@ -129,11 +153,54 @@ export const Booking = () => {
                     rows={4}
                     value={form.issue}
                     onChange={set("issue")}
-                    placeholder="Describe your legal matter briefly. You may attach documents over WhatsApp after booking."
+                    placeholder="Describe your legal matter briefly."
                     className={inputCls}
                     data-testid="booking-input-issue"
                   />
                 </label>
+                <div className="grid gap-2 sm:col-span-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-gold">
+                    Attach Document (optional)
+                  </span>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                    onChange={pickFile}
+                    className="hidden"
+                    data-testid="booking-input-attachment"
+                  />
+                  {file ? (
+                    <span
+                      className="flex w-fit items-center gap-3 border border-gold/40 bg-gold/10 px-4 py-2.5 text-sm text-paper"
+                      data-testid="booking-attachment-chip"
+                    >
+                      <FileText className="h-4 w-4 text-gold" />
+                      {file.name} <span className="text-xs text-paper/50">({Math.ceil(file.size / 1024)} KB)</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFile(null);
+                          if (fileRef.current) fileRef.current.value = "";
+                        }}
+                        aria-label="Remove attachment"
+                        className="text-paper/50 transition-colors hover:text-red-400"
+                        data-testid="booking-attachment-remove"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      className="flex w-fit items-center gap-2 border border-dashed border-gold/40 px-5 py-3 text-sm text-paper/70 transition-colors duration-200 hover:border-gold hover:text-paper"
+                      data-testid="booking-attachment-picker"
+                    >
+                      <FileText className="h-4 w-4 text-gold" /> PDF / Image / Word · max 10 MB
+                    </button>
+                  )}
+                </div>
               </div>
               <button
                 type="submit"
@@ -155,7 +222,7 @@ export const Booking = () => {
           <div className="grid gap-8">
             <FadeUp delay={0.12}>
               <div className="border border-gold/25 bg-ink-800/70 p-7 sm:p-9" data-testid="payment-card">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold">Pay &amp; Confirm</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold">Pay &amp; Confirm · India</p>
                 <div className="mt-5 flex flex-wrap items-center gap-7">
                   <div className="bg-white p-3" data-testid="upi-qr-frame">
                     <img src="/brand/upi-qr.png" alt="UPI QR code for SpLegalMart" className="h-36 w-36" data-testid="upi-qr-img" />
@@ -163,7 +230,7 @@ export const Booking = () => {
                   <div className="grid gap-3">
                     <p className="text-sm text-paper/70">Scan with any UPI app</p>
                     <button
-                      onClick={copyUpi}
+                      onClick={() => copy(UPI, "UPI ID")}
                       data-testid="copy-upi-button"
                       className="group flex items-center gap-3 border border-gold/40 bg-ink-900/70 px-5 py-3 font-mono text-sm text-gold transition-colors duration-200 hover:border-gold"
                     >
@@ -171,6 +238,24 @@ export const Booking = () => {
                       <Copy className="h-4 w-4 opacity-60 transition-opacity group-hover:opacity-100" />
                     </button>
                     <p className="text-xs text-paper/50">PhonePe QR · UPI: {UPI}</p>
+                  </div>
+                </div>
+                <div className="mt-6 border-t border-gold/15 pt-5" data-testid="payment-skydo-block">
+                  <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-gold">
+                    <Globe className="h-4 w-4" /> International Payments · Skydo
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-4">
+                    <button
+                      onClick={() => copy(SKYDO, "Skydo account number")}
+                      data-testid="copy-skydo-button"
+                      className="group flex items-center gap-3 border border-gold/40 bg-ink-900/70 px-5 py-3 font-mono text-sm text-gold transition-colors duration-200 hover:border-gold"
+                    >
+                      A/c No. {SKYDO}
+                      <Copy className="h-4 w-4 opacity-60 transition-opacity group-hover:opacity-100" />
+                    </button>
+                    <p className="text-xs text-paper/50" data-testid="skydo-holder">
+                      Account Holder: SPlegalmart · For international clients paying in USD &amp; other currencies
+                    </p>
                   </div>
                 </div>
               </div>
@@ -183,7 +268,10 @@ export const Booking = () => {
                 </p>
                 <p className="mt-4 text-sm leading-relaxed text-paper/70">
                   <span className="font-semibold text-paper">CSR:</span> Free Legal Aid Camps · Legal Literacy
-                  Programs · Save Life / Save Tree / Save Environment.
+                  Programs · Green Mission — Save Life / Save Tree / Save Environment.{" "}
+                  <a href="/csr" className="text-gold hover:underline" data-testid="booking-csr-link">
+                    Explore our CSR page
+                  </a>
                 </p>
                 <p className="mt-3 text-sm leading-relaxed text-paper/70">
                   <span className="font-semibold text-paper">Careers:</span> Advocates, Legal Interns, Legal Tech,

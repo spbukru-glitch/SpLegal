@@ -14,7 +14,7 @@ const COLS = [
   {
     title: "Initiatives",
     links: [
-      { label: "CSR", hash: "#booking" },
+      { label: "CSR · Green Mission", href: "/csr" },
       { label: "Careers", hash: "#booking" },
     ],
   },
