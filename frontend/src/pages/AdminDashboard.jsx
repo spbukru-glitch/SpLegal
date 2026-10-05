@@ -33,7 +33,7 @@ const STATUS_STYLE = {
 };
 const CSR_TYPES = [
   { value: "photo", label: "Photo (upload image)" },
-  { value: "video", label: "Video (link)" },
+  { value: "video", label: "Video (upload file or paste link)" },
   { value: "blog", label: "Blog (link)" },
   { value: "article", label: "Article (link)" },
   { value: "social", label: "Social media (link)" },
@@ -159,7 +159,11 @@ export default function AdminDashboard() {
       toast.error("Choose a photo to upload");
       return;
     }
-    if (csrForm.media_type !== "photo" && !csrForm.url.trim()) {
+    if (csrForm.media_type === "video" && !csrFile && !csrForm.url.trim()) {
+      toast.error("Upload a video file or paste a link");
+      return;
+    }
+    if (csrForm.media_type !== "photo" && csrForm.media_type !== "video" && !csrForm.url.trim()) {
       toast.error("Paste the link URL");
       return;
     }
@@ -433,18 +437,36 @@ export default function AdminDashboard() {
                       data-testid="csr-media-caption-input"
                     />
                   </label>
-                  {csrForm.media_type === "photo" ? (
-                    <label className="grid gap-1.5">
-                      <span className="text-xs text-paper/60">Photo (JPG/PNG/WebP · max 10 MB)</span>
-                      <input
-                        ref={csrFileRef}
-                        type="file"
-                        accept=".jpg,.jpeg,.png,.webp"
-                        onChange={(e) => setCsrFile(e.target.files?.[0] || null)}
-                        className="w-full border border-dashed border-gold/40 bg-ink-900/60 px-3 py-2 text-xs text-paper/70 file:mr-3 file:border-0 file:bg-gold file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-ink"
-                        data-testid="csr-media-file-input"
-                      />
-                    </label>
+                  {csrForm.media_type === "photo" || csrForm.media_type === "video" ? (
+                    <>
+                      <label className="grid gap-1.5">
+                        <span className="text-xs text-paper/60">
+                          {csrForm.media_type === "photo"
+                            ? "Photo (JPG/PNG/WebP · max 10 MB)"
+                            : "Video file (MP4/WebM/MOV · max 50 MB)"}
+                        </span>
+                        <input
+                          ref={csrFileRef}
+                          type="file"
+                          accept={csrForm.media_type === "photo" ? ".jpg,.jpeg,.png,.webp" : ".mp4,.webm,.mov,.m4v"}
+                          onChange={(e) => setCsrFile(e.target.files?.[0] || null)}
+                          className="w-full border border-dashed border-gold/40 bg-ink-900/60 px-3 py-2 text-xs text-paper/70 file:mr-3 file:border-0 file:bg-gold file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-ink"
+                          data-testid="csr-media-file-input"
+                        />
+                      </label>
+                      {csrForm.media_type === "video" && !csrFile && (
+                        <label className="grid gap-1.5">
+                          <span className="text-xs text-paper/60">…or paste a video link instead</span>
+                          <Input
+                            value={csrForm.url}
+                            onChange={(e) => setCsrForm((f) => ({ ...f, url: e.target.value }))}
+                            placeholder="https://…"
+                            className="border-gold/25 bg-ink-800 text-paper focus-visible:ring-gold"
+                            data-testid="csr-media-url-input"
+                          />
+                        </label>
+                      )}
+                    </>
                   ) : (
                     <label className="grid gap-1.5">
                       <span className="text-xs text-paper/60">Link URL (video / blog / article / social)</span>
@@ -477,6 +499,14 @@ export default function AdminDashboard() {
                       <div key={m._id} className="border border-gold/20 bg-ink-800/60 p-3" data-testid="admin-csr-card">
                         {m.media_type === "photo" && m.storage_path ? (
                           <img src={`${API}/csr/media/${m._id}/file`} alt={m.title} className="aspect-[4/3] w-full object-cover" />
+                        ) : m.media_type === "video" && m.storage_path ? (
+                          <video
+                            controls
+                            preload="metadata"
+                            src={`${API}/csr/media/${m._id}/file`}
+                            className="aspect-[4/3] w-full bg-black object-cover"
+                            data-testid={`admin-csr-video-${m._id}`}
+                          />
                         ) : (
                           <a href={m.url} target="_blank" rel="noreferrer" className="flex aspect-[4/3] w-full items-center justify-center border border-gold/25 text-xs uppercase tracking-[0.2em] text-gold hover:border-gold">
                             {m.media_type} link ↗

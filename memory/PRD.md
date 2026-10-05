@@ -24,6 +24,9 @@ Convert the provided SpLegalMart HTML landing page (global legal & para-legal se
 - 2026-10-05: Emergent object storage (EMERGENT_LLM_KEY) — booking form now accepts an optional document attachment (PDF/JPG/PNG/DOC/DOCX, ≤10MB) via multipart POST /api/bookings; admin downloads attachments from the bookings table; "Live pricing" indicator on services.
 - 2026-10-05: New /csr page — Green Mission & legal aid CSR showcase (5 user-supplied posters), 8 initiative pillars, live media gallery fed from DB, donate block with UPI QR + Skydo. Admin CSR Media tab publishes photos (upload) and link-type items (video/blog/article/social URLs).
 - 2026-10-05: Skydo international payment details added (A/c No. 8333555230, holder SPlegalmart) on booking payment card, contact section and CSR donate block.
+- 2026-10-05: Admin email alerts via Emergent managed Resend (emailer.py) — every new booking triggers a notification to NOTIFICATION_EMAIL (splegalmart@gmail.com) with full details + attachment info; non-blocking, guardrail-gated template.
+- 2026-10-05: WhatsApp handoff — after submit, booking form shows a success panel with "Confirm on WhatsApp" (wa.me/917992461191 prefilled with name/mobile/mode/time/issue/attachment note).
+- 2026-10-05: CSR video uploads — admin can publish real video files (MP4/WebM/MOV up to 50MB) or video/blog/article/social links; CSR page renders native video players for uploaded files.
 
 ## Backlog / Prioritized
 - P0: Razorpay online payments — code-ready plan exists; BLOCKED on user's RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET (test keys from dashboard.razorpay.com → Settings → API Keys).

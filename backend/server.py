@@ -1,4 +1,5 @@
 import os
+import asyncio
 import logging
 import uuid
 import bcrypt
@@ -14,6 +15,8 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field, ConfigDict, BeforeValidator
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+
+from emailer import send_booking_notification
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -96,21 +99,27 @@ MIME_TYPES = {
     "pdf": "application/pdf",
     "doc": "application/msword",
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "mp4": "video/mp4",
+    "webm": "video/webm",
+    "mov": "video/quicktime",
+    "m4v": "video/x-m4v",
 }
 BOOKING_FILE_EXTS = {"pdf", "jpg", "jpeg", "png", "doc", "docx"}
 CSR_PHOTO_EXTS = {"jpg", "jpeg", "png", "webp"}
+CSR_VIDEO_EXTS = {"mp4", "webm", "mov", "m4v"}
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+MAX_VIDEO_BYTES = 50 * 1024 * 1024
 
 
-async def save_upload(file: UploadFile, subfolder: str, allowed: set) -> dict:
+async def save_upload(file: UploadFile, subfolder: str, allowed: set, max_bytes: int = MAX_UPLOAD_BYTES) -> dict:
     ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else "bin"
     if ext not in allowed:
         raise HTTPException(status_code=400, detail=f"File type .{ext} not allowed")
     data = await file.read()
     if len(data) == 0:
         raise HTTPException(status_code=400, detail="Empty file")
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="File too large (max 10 MB)")
+    if len(data) > max_bytes:
+        raise HTTPException(status_code=413, detail=f"File too large (max {max_bytes // (1024 * 1024)} MB)")
     content_type = file.content_type or MIME_TYPES.get(ext, "application/octet-stream")
     path = f"{APP_NAME}/{subfolder}/{uuid.uuid4().hex}.{ext}"
     result = put_object(path, data, content_type)
@@ -297,6 +306,7 @@ async def create_booking(
     }
     await db.bookings.insert_one(doc)
     logger.info("New booking: %s (%s) attachment=%s", doc["full_name"], doc["mobile"], bool(attachment_meta))
+    asyncio.create_task(send_booking_notification(doc))
     return {
         "message": "Consultation request received. Our team will contact you within 24 hours."
     }
@@ -509,9 +519,13 @@ async def admin_create_csr_media(
         meta = await save_upload(file, "csr", CSR_PHOTO_EXTS)
         storage_path = meta["storage_path"]
         content_type = meta["content_type"]
+    elif media_type == "video" and file and file.filename:
+        meta = await save_upload(file, "csr", CSR_VIDEO_EXTS, MAX_VIDEO_BYTES)
+        storage_path = meta["storage_path"]
+        content_type = meta["content_type"]
     else:
         if not url or not url.strip():
-            raise HTTPException(status_code=400, detail="Link-based media requires a URL")
+            raise HTTPException(status_code=400, detail="Provide a URL, or upload a video file")
 
     doc = {
         "title": title.strip(),

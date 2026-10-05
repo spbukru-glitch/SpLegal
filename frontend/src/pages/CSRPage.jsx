@@ -166,6 +166,14 @@ export default function CSRPage() {
                       loading="lazy"
                       className="aspect-[4/3] w-full border border-ink/20 object-cover"
                     />
+                  ) : m.media_type === "video" && m.storage_path ? (
+                    <video
+                      controls
+                      preload="metadata"
+                      src={`${API}/csr/media/${m._id}/file`}
+                      className="aspect-[4/3] w-full border border-ink/20 bg-black object-cover"
+                      data-testid={`csr-video-${m._id}`}
+                    />
                   ) : (
                     <a
                       href={m.url}
